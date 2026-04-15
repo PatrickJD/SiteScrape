@@ -1,0 +1,14 @@
+# Build artifacts
+target/
+dist/
+
+# macOS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+*~
+
+# Kiro
+.kiro/
