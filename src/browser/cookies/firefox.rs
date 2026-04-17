@@ -8,25 +8,23 @@ use tempfile::TempDir;
 
 const MAX_EXPIRY_MS: i64 = 32503680000;
 
-fn get_firefox_profiles_path() -> PathBuf {
-    #[cfg(target_os = "macos")]
-    {
-        dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join("Library/Application Support/Firefox/Profiles")
-    }
+fn get_firefox_profiles_path() -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
-    {
-        dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("C:\\Users\\Default"))
-            .join("Mozilla/Firefox/Profiles")
+    if let Some(data) = dirs::data_dir() {
+        let p = data.join("Mozilla/Firefox/Profiles");
+        if p.exists() {
+            return Some(p);
+        }
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join(".mozilla/firefox")
-    }
+    let home = dirs::home_dir()?;
+    let candidates = [
+        home.join(".config/mozilla/firefox"),
+        home.join(".mozilla/firefox"),
+        home.join("snap/firefox/common/.mozilla/firefox"),
+        home.join(".var/app/org.mozilla.firefox/.mozilla/firefox"),
+        home.join("Library/Application Support/Firefox/Profiles"),
+    ];
+    candidates.into_iter().find(|p| p.exists())
 }
 
 fn validate_profile_name(name: &str) -> color_eyre::Result<()> {
@@ -111,7 +109,8 @@ fn map_samesite(val: i32) -> SameSite {
 }
 
 pub fn extract(profile: Option<&str>) -> Result<Vec<Cookie>> {
-    let base_path = get_firefox_profiles_path();
+    let base_path =
+        get_firefox_profiles_path().ok_or_else(|| eyre!("Firefox profiles directory not found"))?;
 
     let profile_name = profile.unwrap_or("");
     validate_profile_name(profile_name)?;

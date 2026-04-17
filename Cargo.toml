@@ -1,6 +1,6 @@
 [package]
 name = "sitescrape"
-version = "0.1.0"
+version = "0.1.3"
 edition = "2021"
 description = "CLI tool to scrape authenticated internal sites and convert to markdown"
 
