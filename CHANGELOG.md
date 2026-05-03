@@ -6,17 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Fixed empty content when scraping SPA and web-component sites. Browser engine now waits for content elements to render before extraction, not just page readiness.
+
 ### Changed
 - Updated README for public release — added macOS Gatekeeper instructions, issue reporting guidelines
 - Added CONTRIBUTING.md, LICENSE (MIT-0), and CHANGELOG.md
-- Migrated CI/CD from GitLab CI to GitHub Actions
-- Added CI workflow (fmt, clippy, test, build on Linux)
-- Added Release workflow (4-target matrix: macOS ARM/Intel, Linux, Windows)
-- Added Wiki sync workflow (auto-publishes docs/wiki/ to GitHub Wiki)
-- Added README badges (CI status, release version, license, platforms)
-- Changed Windows build target from x86_64-pc-windows-gnu to x86_64-pc-windows-msvc
-- Simplified release.sh to tag-and-push (builds now handled by GitHub Actions)
-- Replaced scripts/sync-wiki.sh with GitHub Actions wiki-sync workflow
 
 ## [0.1.0] - 2026-04-14
 

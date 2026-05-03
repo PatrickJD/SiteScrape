@@ -99,20 +99,39 @@ impl Navigate for Engine {
             .await
             .map_err(|e| eyre!("Failed to navigate to {}: {}", url, e))?;
 
-        // Wait for SPA content to render. Poll until readyState is complete
-        // and body has more than just a loading stub.
-        for _ in 0..30 {
+        // Phase 1: wait for DOM to finish loading (up to 10s).
+        for _ in 0..20 {
             let ready: bool = page
+                .evaluate("document.readyState === 'complete'")
+                .await
+                .ok()
+                .and_then(|r| r.into_value::<bool>().ok())
+                .unwrap_or(false);
+            if ready { break; }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+
+        // Phase 2: wait for SPA content to render (up to 10s).
+        // Try specific content IDs first (more targeted), then semantic elements.
+        // Use the first candidate with >100 chars rather than "most text" to
+        // avoid picking a broad wrapper (e.g. <main> that includes nav/sidebar).
+        for _ in 0..20 {
+            let has_content: bool = page
                 .evaluate(
-                    "document.readyState === 'complete' && document.body && document.body.innerText.trim().length > 50",
+                    r#"(() => {
+                        const sels = ['#main-col-body','#main-content','article','[role="main"]','main','.content'];
+                        for (const s of sels) {
+                            const el = document.querySelector(s);
+                            if (el && el.innerText.trim().length > 100) return true;
+                        }
+                        return document.body && document.body.innerText.trim().length > 100;
+                    })()"#,
                 )
                 .await
                 .ok()
                 .and_then(|r| r.into_value::<bool>().ok())
                 .unwrap_or(false);
-            if ready {
-                break;
-            }
+            if has_content { break; }
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
 
@@ -124,18 +143,34 @@ impl Navigate for Engine {
 
         let html = {
             // Try to get simplified content from the main content area via JS.
-            // SPAs with web components (e.g., AWS Cloudscape) produce HTML that
+            // SPAs with web components produce HTML that
             // markdown converters can't parse. The browser's DOM API gives us
-            // clean innerHTML after JS rendering.
+            // clean HTML by walking the rendered DOM and replacing custom
+            // elements with their children.
             let simplified: Option<String> = page
                 .evaluate(
                     r#"(() => {
-                        const el = document.querySelector('main')
-                            || document.querySelector('article')
-                            || document.querySelector('[role="main"]')
-                            || document.querySelector('.content')
-                            || document.body;
-                        return el ? el.innerHTML : null;
+                        const sels = ['#main-col-body','#main-content','article','[role="main"]','main','.content'];
+                        let target = document.body;
+                        for (const s of sels) {
+                            const el = document.querySelector(s);
+                            if (el && el.innerText.trim().length > 100) { target = el; break; }
+                        }
+                        if (!target) return null;
+                        const clone = target.cloneNode(true);
+                        let changed = true;
+                        while (changed) {
+                            changed = false;
+                            for (const el of clone.querySelectorAll('*')) {
+                                if (el.tagName.includes('-')) {
+                                    while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+                                    el.parentNode.removeChild(el);
+                                    changed = true;
+                                    break;
+                                }
+                            }
+                        }
+                        return clone.innerHTML;
                     })()"#,
                 )
                 .await

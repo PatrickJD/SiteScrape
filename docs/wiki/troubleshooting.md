@@ -19,7 +19,8 @@ Browser mode requires Chrome or Chromium installed. Either:
 
 ## Pages are missing content
 
-- The default scrape captures the full page. Use `-s` to target a specific CSS selector (e.g., `-s ".main-content"`, `-s "article"`)
+- SiteScrape waits for SPA and web-component content to render before extracting. If pages are still empty, the site may load content in a non-standard element.
+- Use `-s` to target a specific CSS selector (e.g., `-s ".main-content"`, `-s "article"`, `-s "#main-column"`) to help locate the right content element.
 - Some sites load content dynamically — make sure you're using browser mode (the default), not `--no-browser`
 
 ## Scrape stops early / misses pages
